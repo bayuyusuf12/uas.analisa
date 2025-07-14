@@ -1,0 +1,92 @@
+import cv2
+import tkinter as tk
+from PIL import Image, ImageTk
+from ultralytics import YOLO
+
+# Load model YOLOv8
+model = YOLO("yolov8n.pt")
+
+# Global variabel
+cap = None
+is_running = False
+
+def start_detection():
+    global cap, is_running
+    if not is_running:
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Gagal membuka kamera.")
+            return
+        is_running = True
+        update_frame()
+
+def stop_detection():
+    global cap, is_running
+    is_running = False
+    if cap:
+        cap.release()
+    video_label.config(image="")  # Kosongkan tampilan
+
+def update_frame():
+    global cap, is_running
+
+    if not is_running:
+        return
+
+    ret, frame = cap.read()
+    if not ret:
+        return
+
+    results = model(frame)[0]
+    jumlah_objek = 0
+
+    for box in results.boxes:
+        cls_id = int(box.cls[0])
+        label = model.names[cls_id]
+        conf = float(box.conf[0])
+        jumlah_objek += 1
+
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+    # Tampilkan jumlah objek
+    cv2.putText(frame, f"Jumlah Objek: {jumlah_objek}", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
+    # Konversi ke RGB
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(rgb)
+    imgtk = ImageTk.PhotoImage(image=img)
+
+    video_label.imgtk = imgtk
+    video_label.configure(image=imgtk)
+
+    # Panggil lagi jika sedang berjalan
+    if is_running:
+        video_label.after(10, update_frame)
+
+# === GUI ===
+window = tk.Tk()
+window.title("Deteksi Objek - YOLOv8 + Tkinter")
+
+video_label = tk.Label(window)
+video_label.pack()
+
+button_frame = tk.Frame(window)
+button_frame.pack(pady=10)
+
+start_button = tk.Button(button_frame, text="Start", command=start_detection, bg="green", fg="white", width=10)
+start_button.pack(side="left", padx=5)
+
+stop_button = tk.Button(button_frame, text="Stop", command=stop_detection, bg="red", fg="white", width=10)
+stop_button.pack(side="left", padx=5)
+
+# Jalankan GUI
+window.mainloop()
+
+# Bersihkan saat keluar
+if cap:
+    cap.release()
+cv2.destroyAllWindows()
