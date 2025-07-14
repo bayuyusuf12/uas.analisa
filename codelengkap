@@ -1,0 +1,42 @@
+import streamlit as st
+import cv2
+from ultralytics import YOLO
+import tempfile
+
+# Load model YOLOv8
+model = YOLO("yolov8n.pt")
+
+# Judul aplikasi
+st.title("Deteksi Objek via Kamera - YOLOv8 (Localhost)")
+
+# Tombol mulai dan berhenti
+start = st.button("Mulai Deteksi")
+stop = st.button("Stop Deteksi")
+
+FRAME_WINDOW = st.image([])
+
+# Kamera & deteksi
+cap = None
+
+if start:
+    cap = cv2.VideoCapture(0)
+    st.info("Deteksi dimulai... Klik 'Stop Deteksi' untuk berhenti.")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Gagal mengambil frame dari kamera.")
+            break
+
+        # Deteksi objek
+        results = model(frame)[0]
+        frame = results.plot()
+
+        # Tampilkan
+        FRAME_WINDOW.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        # Berhenti kalau tombol stop ditekan
+        if stop:
+            break
+
+    cap.release()
+    st.success("Deteksi dihentikan.")
